@@ -1,0 +1,27 @@
+version: '3'
+services: 
+  postgres:
+    image: postgres:12
+    volumes: 
+      - ./modules/pg/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    ports:
+      - 5432:5432
+    networks:
+      - postgres
+    environment: 
+      POSTGRES_USER: mryoung
+      POSTGRES_PASSWORD: whoscalling
+      POSTGRES_DB: eventstore
+  pgadmin:
+    image: dpage/pgadmin4
+    ports: 
+      - 80:80
+    networks:
+      - postgres
+    environment:
+      PGADMIN_DEFAULT_EMAIL: b@b.c
+      PGADMIN_DEFAULT_PASSWORD: whoscalling
+
+networks:
+  postgres:
+    driver: bridge

@@ -13,30 +13,46 @@ lazy val commonSettings = Seq(
   parallelExecution in IntegrationTest  := false,
   testForkedParallel in Test            := false,
   testForkedParallel in IntegrationTest := false,
-  concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)
+  concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
+  // ---------------------------------------------------------------------------
+  // Common deps
+  libraryDependencies ++= Seq(
+    "org.typelevel" %% "simulacrum"    % "1.0.0" % Provided,
+    "org.typelevel" %% "cats-core"     % "2.1.0",
+    "org.typelevel" %% "cats-effect"   % "2.1.1",
+    "io.circe" %% "circe-core"         % "0.12.3",
+    "co.fs2" %% "fs2-core"             % "2.2.1",
+    "co.fs2" %% "fs2-reactive-streams" % "2.2.1",
+    "io.monix" %% "minitest"           % "2.7.0" % Test
+  )
 )
 
 lazy val saci = project
   .in(file("."))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
-  .dependsOn(core)
-  .aggregate(core)
+  .dependsOn(core, pg)
+  .aggregate(core, pg)
 
 lazy val core = project
   .in(file("modules/core"))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
   .settings(
-    name := "saci-core",
+    name := "saci-core"
+  )
+
+lazy val pg = project
+  .in(file("modules/pg"))
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(commonSettings)
+  .settings(
+    name := "saci-pg",
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "simulacrum"    % "1.0.0" % Provided,
-      "org.typelevel" %% "cats-core"     % "2.1.0",
-      "org.typelevel" %% "cats-effect"   % "2.1.1",
-      "co.fs2" %% "fs2-core"             % "2.2.1",
-      "co.fs2" %% "fs2-reactive-streams" % "2.2.1",
-      "io.monix" %% "minitest"           % "2.7.0" % Test
+      "org.tpolecat" %% "skunk-core"  % "0.0.7",
+      "org.tpolecat" %% "skunk-circe" % "0.0.7"
     )
   )
+  .dependsOn(core)
 
 // See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for instructions on how to publish to Sonatype.
