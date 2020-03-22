@@ -22,8 +22,7 @@ lazy val commonSettings = Seq(
     "org.typelevel" %% "cats-effect"   % "2.1.1",
     "io.circe" %% "circe-core"         % "0.12.3",
     "co.fs2" %% "fs2-core"             % "2.2.1",
-    "co.fs2" %% "fs2-reactive-streams" % "2.2.1",
-    "io.monix" %% "minitest"           % "2.7.0" % Test
+    "co.fs2" %% "fs2-reactive-streams" % "2.2.1"
   )
 )
 
@@ -31,8 +30,8 @@ lazy val saci = project
   .in(file("."))
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
-  .dependsOn(core, pg)
-  .aggregate(core, pg)
+  .dependsOn(core, pg, tests)
+  .aggregate(core, pg, tests)
 
 lazy val core = project
   .in(file("modules/core"))
@@ -54,5 +53,16 @@ lazy val pg = project
     )
   )
   .dependsOn(core)
+
+lazy val tests = project
+  .in(file("modules/tests"))
+  .dependsOn(core, pg)
+  .enablePlugins(AutomateHeaderPlugin)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.codecommit" %% "cats-effect-testing-specs2" % "0.4.0" % Test
+    )
+  )
 
 // See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for instructions on how to publish to Sonatype.
