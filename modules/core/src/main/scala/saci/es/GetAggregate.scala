@@ -27,6 +27,20 @@ trait GetAggregate[F[_]] {
 }
 
 object GetAggregate {
+  import cats.MonadError
+  // import cats.syntax._
+  // import io.circe._
+  // import io.circe.generic.auto._
+  // import io.circe.parser._
+  // import io.circe.syntax._
 
-  def apply[F[_]]: GetAggregate[F] = ???
+  def apply[F[_]: Repository](implicit M: MonadError[F, Throwable]): GetAggregate[F] =
+    new GetAggregate[F] {
+      override def get(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, String] = {
+        for {
+          jsonPayload    <- Repository[F].query(aggregateId, from)
+          decodedPayload <- fs2.Stream.fromEither[F](jsonPayload.as[String])
+        } yield decodedPayload
+      }
+    }
 }

@@ -17,12 +17,15 @@ lazy val commonSettings = Seq(
   // ---------------------------------------------------------------------------
   // Common deps
   libraryDependencies ++= Seq(
-    "org.typelevel" %% "simulacrum"    % "1.0.0" % Provided,
-    "org.typelevel" %% "cats-core"     % "2.1.0",
-    "org.typelevel" %% "cats-effect"   % "2.1.1",
-    "io.circe" %% "circe-core"         % "0.12.3",
-    "co.fs2" %% "fs2-core"             % "2.2.1",
-    "co.fs2" %% "fs2-reactive-streams" % "2.2.1"
+    "org.typelevel" %% "simulacrum"                  % "1.0.0" % Provided,
+    "org.typelevel" %% "cats-core"                   % "2.1.0",
+    "org.typelevel" %% "cats-effect"                 % "2.1.1",
+    "io.circe" %% "circe-core"                       % "0.12.3",
+    "io.circe" %% "circe-generic"                    % "0.12.3",
+    "io.circe" %% "circe-parser"                     % "0.12.3",
+    "co.fs2" %% "fs2-core"                           % "2.2.1",
+    "co.fs2" %% "fs2-reactive-streams"               % "2.2.1",
+    "com.codecommit" %% "cats-effect-testing-specs2" % "0.4.0" % Test
   )
 )
 
@@ -59,10 +62,3 @@ lazy val tests = project
   .dependsOn(core, pg)
   .enablePlugins(AutomateHeaderPlugin)
   .settings(commonSettings)
-  .settings(
-    libraryDependencies ++= Seq(
-      "com.codecommit" %% "cats-effect-testing-specs2" % "0.4.0" % Test
-    )
-  )
-
-// See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for instructions on how to publish to Sonatype.

@@ -30,13 +30,10 @@ trait EventStore[F[_]] {
 }
 
 object EventStore {
-  import saci.es.GetAggregate
 
   def apply[F[_]]: EventStore[F] =
     new EventStore[F] {
-      override def get(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, String] =
-        GetAggregate[F].get(aggregateId, from)
-
+      override def get(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, String] = ???
       override def put(aggregateId: AggregateId, sequenceNumber: SequenceNr, event: String): F[String] = ???
       override def list(from: SequenceNr): fs2.Stream[F, String] = ???
     }
