@@ -23,18 +23,25 @@ import saci.data._
 
 trait EventStore[F[_]] {
 
-  def get(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, String]
-  def put(aggregateId: AggregateId, sequenceNumber: SequenceNr, event: String): F[String]
-  def list(from: SequenceNr): fs2.Stream[F, String]
+  // Events
+  def get(agType: AggregateType, agId: AggregateId, from: SequenceNr): fs2.Stream[F, EventData]
+  def put(eventData: EventData): F[WriteResult]
+  def list(agType: AggregateType, agId: AggregateId): fs2.Stream[F, EventData]
 
+  // Streams
+  def list(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData]
+  def create(agType: AggregateType): F[Unit]
 }
 
 object EventStore {
 
   def apply[F[_]]: EventStore[F] =
     new EventStore[F] {
-      override def get(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, String] = ???
-      override def put(aggregateId: AggregateId, sequenceNumber: SequenceNr, event: String): F[String] = ???
-      override def list(from: SequenceNr): fs2.Stream[F, String] = ???
+      override def get(agType: AggregateType, agId: AggregateId, from: SequenceNr): fs2.Stream[F, EventData] = ???
+      override def put(eventData: EventData): F[WriteResult] = ???
+      override def list(agType: AggregateType, agId: AggregateId): fs2.Stream[F, EventData] = ???
+      override def list(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData] = ???
+      override def create(agType: AggregateType): F[Unit] = ???
+
     }
 }

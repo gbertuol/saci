@@ -1,11 +1,10 @@
 package saci.es
 
 import saci.data._
-import io.circe.Json
 
 trait Repository[F[_]] {
 
-  def query(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, Json]
+  def query(sgType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, RecordedEvent]
 }
 
 object Repository {

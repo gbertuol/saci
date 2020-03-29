@@ -4,16 +4,23 @@ import saci.data._
 import org.specs2.mutable.Specification
 import cats.effect.testing.specs2.CatsEffect
 import cats.effect.IO
-// import cats.implicits._
-import io.circe.Json
 import io.circe.syntax._
+import java.{util => ju}
+import java.time.Instant
 
 class GetAggregateSpec extends Specification with CatsEffect {
 
   implicit val repo = new Repository[IO] {
-    override def query(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[IO, Json] = {
+    override def query(sgType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[IO, RecordedEvent] = {
       fs2.Stream.emit(
-        """{"a": 1}""".asJson
+        RecordedEvent(
+          ju.UUID.randomUUID(),
+          sgType,
+          agId,
+          from,
+          """{"a": 1}""".asJson,
+          Instant.MIN
+        )
       )
     }
   }
@@ -21,8 +28,9 @@ class GetAggregateSpec extends Specification with CatsEffect {
   "GetAggregate" should {
     "get the aggregate" in {
       for {
-        get <- GetAggregate.apply[IO].get("foo", 1L).compile.last
-        _   <- IO(get === Some("""{"a": 1}"""))
+        get <- GetAggregate.apply[IO].get("foo", "bar", 1).compile.last
+        _   <- IO(get.map(_.version) === Some(1))
+        _   <- IO(get.map(_.data) === Some("""{"a": 1}""".asJson))
       } yield success
     }
   }

@@ -23,24 +23,23 @@ import saci.data._
 
 trait GetAggregate[F[_]] {
 
-  def get(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, String]
+  def get(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, EventData]
 }
 
 object GetAggregate {
-  import cats.MonadError
-  // import cats.syntax._
-  // import io.circe._
-  // import io.circe.generic.auto._
-  // import io.circe.parser._
-  // import io.circe.syntax._
 
-  def apply[F[_]: Repository](implicit M: MonadError[F, Throwable]): GetAggregate[F] =
+  def apply[F[_]: Repository]: GetAggregate[F] =
     new GetAggregate[F] {
-      override def get(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, String] = {
+      override def get(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, EventData] = {
         for {
-          jsonPayload    <- Repository[F].query(aggregateId, from)
-          decodedPayload <- fs2.Stream.fromEither[F](jsonPayload.as[String])
-        } yield decodedPayload
+          recordedEvent <- Repository[F].query(agType, agId, from)
+        } yield EventData(
+          Some(recordedEvent.evId),
+          recordedEvent.agType,
+          recordedEvent.agId,
+          recordedEvent.version,
+          recordedEvent.data
+        )
       }
     }
 }

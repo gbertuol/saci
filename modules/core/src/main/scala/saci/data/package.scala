@@ -19,9 +19,12 @@
 
 package saci
 
+import java.{util => ju}
+
 package object data {
-
   type AggregateId = String
-  type SequenceNr  = Long
-
+  type AggregateType = String
+  type SequenceNr = Long
+  type EventId = ju.UUID
+  type Version = Int
 }
