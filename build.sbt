@@ -3,6 +3,7 @@ lazy val commonSettings = Seq(
   headerLicense  := Some(HeaderLicense.MIT("2019", "Guilherme Bertuol")),
   headerMappings := headerMappings.value + (HeaderFileType.scala -> HeaderCommentStyle.cppStyleLineComment),
   scalaVersion   := "2.13.1",
+  addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full),
   // ---------------------------------------------------------------------------
   // Options for testing
   testFrameworks += new TestFramework("minitest.runner.Framework"),
@@ -25,6 +26,7 @@ lazy val commonSettings = Seq(
     "io.circe" %% "circe-parser"                     % "0.12.3",
     "co.fs2" %% "fs2-core"                           % "2.2.1",
     "co.fs2" %% "fs2-reactive-streams"               % "2.2.1",
+    "com.github.cb372" %% "cats-retry"               % "1.1.0",
     "com.codecommit" %% "cats-effect-testing-specs2" % "0.4.0" % Test
   )
 )

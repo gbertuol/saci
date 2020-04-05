@@ -24,7 +24,7 @@ import saci.data._
 trait EventStore[F[_]] {
 
   // Events
-  def get(agType: AggregateType, agId: AggregateId, from: SequenceNr): fs2.Stream[F, EventData]
+  def get(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, EventData]
   def put(eventData: EventData): F[WriteResult]
   def list(agType: AggregateType, agId: AggregateId): fs2.Stream[F, EventData]
 
@@ -34,14 +34,20 @@ trait EventStore[F[_]] {
 }
 
 object EventStore {
+  import cats.effect.Sync
 
-  def apply[F[_]]: EventStore[F] =
+  def apply[F[_]: Sync: Repository]: EventStore[F] =
     new EventStore[F] {
-      override def get(agType: AggregateType, agId: AggregateId, from: SequenceNr): fs2.Stream[F, EventData] = ???
-      override def put(eventData: EventData): F[WriteResult] = ???
-      override def list(agType: AggregateType, agId: AggregateId): fs2.Stream[F, EventData] = ???
+      override def get(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, EventData] =
+        GetAggregate.apply[F].get(agType, agId, from)
+
+      override def put(eventData: EventData): F[WriteResult] =
+        PutEvent.apply[F].put(eventData)
+
+      override def list(agType: AggregateType, agId: AggregateId): fs2.Stream[F, EventData] =
+        GetAggregate.apply[F].get(agType, agId, from = 0)
+
       override def list(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData] = ???
       override def create(agType: AggregateType): F[Unit] = ???
-
     }
 }
