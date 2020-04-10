@@ -34,6 +34,7 @@ trait EventStore[F[_]] {
 }
 
 object EventStore {
+  import saci.es.impl._
   import cats.effect.Sync
 
   def apply[F[_]: Sync: Repository]: EventStore[F] =

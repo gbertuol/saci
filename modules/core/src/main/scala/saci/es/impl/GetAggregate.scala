@@ -17,37 +17,29 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package saci.es
+package saci.es.impl
 
-import saci.data.EventData
-import saci.data.WriteResult
+import saci.data._
 
-trait PutEvent[F[_]] {
+trait GetAggregate[F[_]] {
 
-  def put(eventData: EventData): F[WriteResult]
-
+  def get(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, EventData]
 }
 
-object PutEvent {
-  import cats.MonadError
-  import cats.implicits._
-  import java.{util => ju}
+object GetAggregate {
 
-  def apply[F[_]: MonadError[*[_], Throwable]: Repository]: PutEvent[F] =
-    new PutEvent[F] {
-
-      override def put(eventData: EventData): F[WriteResult] = {
+  def apply[F[_]: Repository]: GetAggregate[F] =
+    new GetAggregate[F] {
+      override def get(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, EventData] = {
         for {
-          evId   <- resolveEventId(eventData)
-          result <- Repository[F].put(evId, eventData.agType, eventData.agId, eventData.version, eventData.data)
-        } yield result
+          recordedEvent <- Repository[F].query(agType, agId, from)
+        } yield EventData(
+          Some(recordedEvent.evId),
+          recordedEvent.agType,
+          recordedEvent.agId,
+          recordedEvent.version,
+          recordedEvent.data
+        )
       }
-
-      private def resolveEventId(eventData: EventData) =
-        eventData.evId match {
-          case Some(id) => MonadError[F, Throwable].point(id)
-          case None => MonadError[F, Throwable].catchNonFatal(ju.UUID.randomUUID())
-        }
-
     }
 }

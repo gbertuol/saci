@@ -1,16 +1,21 @@
 package saci.es
 
 import saci.data._
+import saci.es.impl._
 import org.specs2.mutable.Specification
 import cats.effect.testing.specs2.CatsEffect
 import cats.effect.IO
 import io.circe.syntax._
 import java.{util => ju}
 import java.time.Instant
+import io.circe.Json
 
 class GetAggregateSpec extends Specification with CatsEffect {
 
   implicit val repo = new Repository[IO] {
+
+    override def put(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json): IO[WriteResult] = ???
+
     override def query(sgType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[IO, RecordedEvent] = {
       fs2.Stream.emit(
         RecordedEvent(
