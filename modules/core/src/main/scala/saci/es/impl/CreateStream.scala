@@ -17,12 +17,21 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package saci.data
+package saci.es.impl
 
-abstract class EventStoreError(message: String, cause: Option[Throwable]) extends Exception(message, cause.orNull)
-abstract class RetriableError(message: String, cause: Option[Throwable]) extends EventStoreError(message, cause)
-abstract class NonRetriableError(message: String, cause: Option[Throwable]) extends EventStoreError(message, cause)
+import saci.data._
 
-final case class OptimisticConcurrencyCheckError(message: String) extends NonRetriableError(message, cause = None)
-final case class StreamNotFoundError(message: String) extends NonRetriableError(message, cause = None)
-final case class StreamAlreadyExistsError(message: String) extends NonRetriableError(message, cause = None)
+trait CreateStream[F[_]] {
+
+  def createStream(aggregateType: AggregateType): F[Unit]
+}
+
+object CreateStream {
+  import saci.es.Repository
+
+  def apply[F[_]: Repository]: CreateStream[F] =
+    new CreateStream[F] {
+      override def createStream(aggregateType: AggregateType): F[Unit] =
+        Repository[F].createStream(aggregateType)
+    }
+}

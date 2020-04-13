@@ -19,8 +19,7 @@
 
 package saci.es.impl
 
-import saci.data.EventData
-import saci.data.WriteResult
+import saci.data._
 
 trait PutEvent[F[_]] {
 
@@ -29,6 +28,7 @@ trait PutEvent[F[_]] {
 }
 
 object PutEvent {
+  import saci.es.Repository
   import cats.MonadError
   import cats.implicits._
   import java.{util => ju}

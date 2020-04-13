@@ -1,6 +1,5 @@
-package saci.es
+package saci.es.impl
 
-import saci.es.impl._
 import org.specs2.mutable.Specification
 import cats.effect.testing.specs2.CatsEffect
 import cats.effect.IO
@@ -18,12 +17,14 @@ class GetAggregateSpec extends Specification with CatsEffect {
         agId = "agId"
         version = 1
         data = """{}""".asJson
+        _ <- repo.createStream(agType)
         _ <- repo.put(evId, agType, agId, version, data)
       } yield {
         implicit val _repo = repo
         for {
           get <- GetAggregate.apply[IO].get(agType, agId, 1).compile.last
           _   <- IO(get.map(_.version) === Some(1))
+          _   <- IO(get.flatMap(_.evId) === Some(evId))
           _   <- IO(get.map(_.data) === Some("""{}""".asJson))
         } yield success
       }

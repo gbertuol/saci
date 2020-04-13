@@ -27,6 +27,7 @@ trait GetAggregate[F[_]] {
 }
 
 object GetAggregate {
+  import saci.es.Repository
 
   def apply[F[_]: Repository]: GetAggregate[F] =
     new GetAggregate[F] {

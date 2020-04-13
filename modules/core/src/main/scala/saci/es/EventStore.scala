@@ -46,9 +46,11 @@ object EventStore {
         PutEvent.apply[F].put(eventData)
 
       override def list(agType: AggregateType, agId: AggregateId): fs2.Stream[F, EventData] =
-        GetAggregate.apply[F].get(agType, agId, from = 0)
+        GetAggregate.apply[F].get(agType, agId, from = 1)
 
       override def list(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData] = ???
-      override def create(agType: AggregateType): F[Unit] = ???
+
+      override def create(agType: AggregateType): F[Unit] =
+        CreateStream.apply[F].createStream(agType)
     }
 }
