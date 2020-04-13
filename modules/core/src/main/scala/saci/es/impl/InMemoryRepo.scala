@@ -72,6 +72,13 @@ object InMemoryRepo {
         } yield WriteResult(evId, agType, sqNr)
       }
 
+      override def listStreams: fs2.Stream[F, AggregateType] = {
+        for {
+          _db     <- fs2.Stream.eval(db.get)
+          streams <- fs2.Stream.fromIterator(_db.keys.iterator)
+        } yield streams
+      }
+
       override def createStream(agType: AggregateType): F[Unit] = {
         for {
           _db <- db.get

@@ -17,21 +17,20 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package saci.es
+package saci.es.impl
 
 import saci.data._
-import io.circe.Json
 
-trait Repository[F[_]] {
-
-  def query(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, RecordedEvent]
-  def put(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json): F[WriteResult]
-  def createStream(agType: AggregateType): F[Unit]
+trait ListStreams[F[_]] {
   def listStreams: fs2.Stream[F, AggregateType]
-
 }
 
-object Repository {
+object ListStreams {
+  import saci.es.Repository
 
-  def apply[F[_]: Repository]: Repository[F] = implicitly
+  def apply[F[_]: Repository]: ListStreams[F] =
+    new ListStreams[F] {
+      override def listStreams: fs2.Stream[F, AggregateType] =
+        Repository[F].listStreams
+    }
 }
