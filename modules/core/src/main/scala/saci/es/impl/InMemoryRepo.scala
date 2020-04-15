@@ -19,17 +19,15 @@
 
 package saci.es.impl
 
-import java.time.Instant
-
 object InMemoryRepo {
   import saci.data._
   import saci.es.Repository
   import scala.collection.mutable
   import io.circe.Json
-  import saci.data.WriteResult
   import cats.effect.Sync
   import cats.effect.concurrent.Ref
   import cats.implicits._
+  import java.time.Instant
 
   def apply[F[_]: Sync]: F[Repository[F]] = {
     for {

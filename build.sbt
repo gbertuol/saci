@@ -27,6 +27,7 @@ lazy val commonSettings = Seq(
     "co.fs2" %% "fs2-core"                           % "2.2.1",
     "co.fs2" %% "fs2-reactive-streams"               % "2.2.1",
     "com.github.cb372" %% "cats-retry"               % "1.1.0",
+    "org.tpolecat" %% "natchez-core"                 % "0.0.11",
     "com.codecommit" %% "cats-effect-testing-specs2" % "0.4.0" % Test
   )
 )
@@ -53,8 +54,8 @@ lazy val pg = project
   .settings(
     name := "saci-pg",
     libraryDependencies ++= Seq(
-      "org.tpolecat" %% "skunk-core"  % "0.0.7",
-      "org.tpolecat" %% "skunk-circe" % "0.0.7"
+      "org.tpolecat" %% "skunk-core"  % "0.0.8",
+      "org.tpolecat" %% "skunk-circe" % "0.0.8"
     )
   )
   .dependsOn(core)

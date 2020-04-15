@@ -37,8 +37,9 @@ trait EventStore[F[_]] {
 object EventStore {
   import saci.es.impl._
   import cats.effect.Sync
+  import natchez.Trace
 
-  def apply[F[_]: Sync: Repository]: EventStore[F] =
+  def apply[F[_]: Sync: Trace: Repository]: EventStore[F] =
     new EventStore[F] {
 
       override def get(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, EventData] =
@@ -51,7 +52,9 @@ object EventStore {
         GetAggregate.apply[F].get(agType, agId, from = 1)
 
       override def list(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData] = ???
-      override def list: fs2.Stream[F, AggregateType] = ???
+
+      override def list: fs2.Stream[F, AggregateType] =
+        ListStreams.apply[F].listStreams
 
       override def create(agType: AggregateType): F[Unit] =
         CreateStream.apply[F].createStream(agType)
