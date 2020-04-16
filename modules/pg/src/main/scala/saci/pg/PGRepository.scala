@@ -19,50 +19,67 @@
 
 package saci.pg
 
-// import saci.es.Repository
-// import saci.data._
+import saci.es.Repository
+import saci.data._
 // import io.circe.Json
-// import cats.effect._
-// import cats.implicits._
-// import skunk._
-// import skunk.implicits._
+import cats.effect._
+import cats.implicits._
+import skunk._
+import skunk.implicits._
+import skunk.codec.all._
 // import skunk.circe.codec.all._
-// import natchez.Trace
+import natchez.Trace
+import io.circe.Json
+import scala.util.control.NonFatal
 
 object PGRepository {
 
-  // def apply[F[_]: Concurrent: ContextShift: Trace]: Resource[F, Repository[F]] = {
-  //   for {
-  //     p <- pool
-  //   } yield new Repository[F] {
-  //     override def query(aggregateId: AggregateId, from: SequenceNr): fs2.Stream[F, Json] = {
-  //       for {
-  //         s <- fs2.Stream.resource(p)
-  //       } yield ()
-  //     }
+  def apply[F[_]: Concurrent: ContextShift: Trace]: Resource[F, Repository[F]] = {
+    for {
+      sessionPool <- buildPool
+    } yield new Repository[F] {
+      import Statements._
 
-  //   }
+      override def query(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, RecordedEvent] = ???
 
-  //   // null.asInstanceOf[Repository[F]]
-  // }
+      override def put(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json): F[WriteResult] = ???
 
-  // val select: Query[String ~ Long, Json] =
-  //   sql"""
-  //       select
-  //         event
-  //       from
-  //         eventstable
-  //       where
-  //         aggregateId = $varchar
-  //         and sequenceNr >= $int8
-  //     """.query(json)
+      override def createStream(agType: AggregateType): F[Unit] =
+        Trace[F].span(s"createStream $agType") {
+          sessionPool.use { session =>
+            for {
+              _ <- session.prepare(insertNewStream).use(_.execute(agType)).recoverWith {
+                case ex: skunk.exception.PostgresErrorException => Concurrent[F].raiseError(StreamAlreadyExistsError(ex.message))
+                case NonFatal(ex) => Concurrent[F].raiseError(ex)
+              }
+            } yield ()
+          }
+        }
 
-  // private def pool[F[_]: Concurrent: ContextShift: Trace]: SessionPool[F] =
-  //   Session.pooled(
-  //     host = "localhost",
-  //     user = "jimmy",
-  //     database = "world",
-  //     password = Some("banana"),
-  //     max = 10
-  //   )
+      override def listStreams: fs2.Stream[F, AggregateType] =
+        for {
+          session <- fs2.Stream.resource(sessionPool)
+          ps      <- fs2.Stream.resource(session.prepare(selectStreams))
+          streams <- ps.stream(Void, 10)
+        } yield streams
+
+    }
+
+  }
+
+  object Statements {
+    val selectStreams: Query[Void, String] = sql"""select stream_name from eventstore.streams order by stream_name desc""".query(varchar(128))
+    // val selectSpecificStream: Query[String, Int] = sql"""select stream_id from eventstore.streams where stream_name=$varchar(128)""".query(int4)
+    val insertNewStream: Command[String] = sql"""insert into eventstore.streams (stream_name) values ($varchar)""".command
+  }
+
+  private def buildPool[F[_]: Concurrent: ContextShift: Trace]: SessionPool[F] =
+    Session.pooled(
+      host = "localhost",
+      user = "mryoung",
+      database = "eventstore",
+      password = Some("whoscalling"),
+      max = 10
+      // debug = true
+    )
 }
