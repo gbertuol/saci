@@ -26,3 +26,4 @@ abstract class NonRetriableError(message: String, cause: Option[Throwable]) exte
 final case class OptimisticConcurrencyCheckError(message: String) extends NonRetriableError(message, cause = None)
 final case class StreamNotFoundError(message: String) extends NonRetriableError(message, cause = None)
 final case class StreamAlreadyExistsError(message: String) extends NonRetriableError(message, cause = None)
+final case class FatalRepositoryError(message: String, cause: Throwable) extends NonRetriableError(message, cause = Some(cause))

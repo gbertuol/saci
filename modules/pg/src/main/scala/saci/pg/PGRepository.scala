@@ -30,7 +30,6 @@ import skunk.codec.all._
 // import skunk.circe.codec.all._
 import natchez.Trace
 import io.circe.Json
-import scala.util.control.NonFatal
 
 object PGRepository {
 
@@ -47,21 +46,23 @@ object PGRepository {
       override def createStream(agType: AggregateType): F[Unit] =
         Trace[F].span(s"createStream $agType") {
           sessionPool.use { session =>
-            for {
-              _ <- session.prepare(insertNewStream).use(_.execute(agType)).recoverWith {
-                case ex: skunk.exception.PostgresErrorException => Concurrent[F].raiseError(StreamAlreadyExistsError(ex.message))
-                case NonFatal(ex) => Concurrent[F].raiseError(ex)
-              }
-            } yield ()
+            session.prepare(insertNewStream).use(_.execute(agType)).recoverWith {
+              case ex: skunk.exception.PostgresErrorException if ex.code == "23505" => Concurrent[F].raiseError(StreamAlreadyExistsError(ex.message))
+              case ex: skunk.exception.SkunkException => Concurrent[F].raiseError(FatalRepositoryError("unexpected error", ex))
+            } *> Concurrent[F].unit
           }
         }
 
-      override def listStreams: fs2.Stream[F, AggregateType] =
-        for {
+      override def listStreams: fs2.Stream[F, AggregateType] = {
+        val streams = for {
           session <- fs2.Stream.resource(sessionPool)
           ps      <- fs2.Stream.resource(session.prepare(selectStreams))
           streams <- ps.stream(Void, 10)
         } yield streams
+        streams.recoverWith {
+          case ex: skunk.exception.SkunkException => fs2.Stream.raiseError[F](FatalRepositoryError("unexpected error", ex))
+        }
+      }
 
     }
 
