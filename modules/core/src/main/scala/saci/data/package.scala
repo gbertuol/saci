@@ -26,5 +26,6 @@ package object data {
   type AggregateType = String
   type SequenceNr = Long
   type EventId = ju.UUID
-  type Version = Int
+  type Version = Long
+  type StreamId = Long
 }

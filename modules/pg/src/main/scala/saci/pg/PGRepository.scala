@@ -21,15 +21,16 @@ package saci.pg
 
 import saci.es.Repository
 import saci.data._
-// import io.circe.Json
 import cats.effect._
 import cats.implicits._
 import skunk._
 import skunk.implicits._
 import skunk.codec.all._
-// import skunk.circe.codec.all._
+import skunk.circe.codec.all._
 import natchez.Trace
 import io.circe.Json
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 
 object PGRepository {
 
@@ -39,16 +40,45 @@ object PGRepository {
     } yield new Repository[F] {
       import Statements._
 
-      override def query(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, RecordedEvent] = ???
+      override def query(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, RecordedEvent] = {
+        val events = for {
+          session <- fs2.Stream.resource(sessionPool)
+          ps      <- fs2.Stream.resource(session.prepare(selectEvents))
+          stream  <- ps.stream(agId ~ from, 10).map(ev => RecordedEvent(ev.evId, agType, agId, ev.version, ev.data, ev.timestamp.toInstant(ZoneOffset.UTC)))
+        } yield stream
+        events.adaptError {
+          case ex: skunk.exception.PostgresErrorException => println(ex); FatalRepositoryError("unexpected error", ex)
+        }
+      }
 
-      override def put(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json): F[WriteResult] = ???
+      override def put(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json): F[WriteResult] = {
+        Trace[F].span(s"put $evId $agType $version") {
+          sessionPool.use { session =>
+            session.transaction
+              .use { _ =>
+                for {
+                  streamId <- session.prepare(selectStream).use(_.unique(agType)).adaptError {
+                    case _: skunk.exception.SkunkException => StreamNotFoundError(s"Unable to find aggregate type $agType")
+                  }
+                  sequenceNr <- session.prepare(insertNewEvent).use(_.unique(NewEvent(evId, streamId, agId, version, data))).adaptError {
+                    case _: skunk.exception.SkunkException => OptimisticConcurrencyCheckError("out dated attempt")
+                  }
+                  _ <- session.prepare(updateSequenceNr).use(_.execute(sequenceNr ~ streamId))
+                } yield WriteResult(evId, agType, sequenceNr)
+              }
+              .adaptError {
+                case ex: skunk.exception.SkunkException => FatalRepositoryError("unexpected error", ex)
+              }
+          }
+        }
+      }
 
       override def createStream(agType: AggregateType): F[Unit] =
         Trace[F].span(s"createStream $agType") {
           sessionPool.use { session =>
-            session.prepare(insertNewStream).use(_.execute(agType)).recoverWith {
-              case ex: skunk.exception.PostgresErrorException if ex.code == "23505" => Concurrent[F].raiseError(StreamAlreadyExistsError(ex.message))
-              case ex: skunk.exception.SkunkException => Concurrent[F].raiseError(FatalRepositoryError("unexpected error", ex))
+            session.prepare(insertNewStream).use(_.execute(agType)).adaptError {
+              case ex: skunk.exception.PostgresErrorException if ex.code == "23505" => StreamAlreadyExistsError(ex.message)
+              case ex: skunk.exception.SkunkException => FatalRepositoryError("unexpected error", ex)
             } *> Concurrent[F].unit
           }
         }
@@ -59,8 +89,8 @@ object PGRepository {
           ps      <- fs2.Stream.resource(session.prepare(selectStreams))
           streams <- ps.stream(Void, 10)
         } yield streams
-        streams.recoverWith {
-          case ex: skunk.exception.SkunkException => fs2.Stream.raiseError[F](FatalRepositoryError("unexpected error", ex))
+        streams.adaptError {
+          case ex: skunk.exception.SkunkException => FatalRepositoryError("unexpected error", ex)
         }
       }
 
@@ -69,9 +99,37 @@ object PGRepository {
   }
 
   object Statements {
-    val selectStreams: Query[Void, String] = sql"""select stream_name from eventstore.streams order by stream_name desc""".query(varchar(128))
-    // val selectSpecificStream: Query[String, Int] = sql"""select stream_id from eventstore.streams where stream_name=$varchar(128)""".query(int4)
-    val insertNewStream: Command[String] = sql"""insert into eventstore.streams (stream_name) values ($varchar)""".command
+    val selectStreams: Query[Void, AggregateType] =
+      sql"""select stream_name from eventstore.streams order by stream_name desc""".query(varchar(128))
+
+    val selectStream: Query[String, StreamId] =
+      sql"""select stream_id from eventstore.streams where stream_name=${varchar(128)}""".query(int8)
+
+    val insertNewStream: Command[AggregateType] =
+      sql"""insert into eventstore.streams (stream_name) values ($varchar)""".command
+
+    final case class NewEvent(evId: EventId, streamId: StreamId, agId: AggregateId, version: Version, data: Json)
+    private val newEvent: Encoder[NewEvent] = (uuid ~ int8 ~ varchar(128) ~ int8 ~ jsonb).gcontramap[NewEvent]
+
+    val insertNewEvent: Query[NewEvent, SequenceNr] =
+      sql"""insert into eventstore.events (created_utc, event_id, stream_id, aggregate_id, aggregate_version, payload)
+          values ('now', $newEvent)
+          returning global_position
+         """
+        .query(int8)
+
+    val updateSequenceNr: Command[SequenceNr ~ StreamId] =
+      sql"""update eventstore.streams set sequence_nr = $int8 where stream_id = $int8""".command
+
+    final case class SelectedEvent(evId: EventId, version: Version, data: Json, timestamp: LocalDateTime)
+
+    val selectEvents =
+      sql"""select event_id, aggregate_version, payload, created_utc from eventstore.events
+            where aggregate_id = ${varchar(128)} and aggregate_version >= $int8
+         """
+        .query(uuid ~ int8 ~ jsonb ~ timestamp)
+        .gmap[SelectedEvent]
+
   }
 
   private def buildPool[F[_]: Concurrent: ContextShift: Trace]: SessionPool[F] =
