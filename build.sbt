@@ -1,6 +1,6 @@
 lazy val commonSettings = Seq(
   organization   := "org.bertuol",
-  headerLicense  := Some(HeaderLicense.MIT("2019", "Guilherme Bertuol")),
+  headerLicense  := Some(HeaderLicense.MIT("2020", "Guilherme Bertuol")),
   headerMappings := headerMappings.value + (HeaderFileType.scala -> HeaderCommentStyle.cppStyleLineComment),
   scalaVersion   := "2.13.1",
   addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.11.0" cross CrossVersion.full),

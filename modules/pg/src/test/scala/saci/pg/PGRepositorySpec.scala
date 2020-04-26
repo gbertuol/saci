@@ -60,13 +60,14 @@ class PGRepositorySpec extends Specification with CatsEffect {
           _          <- repo.createStream(streamName)
           evId       <- IO { ju.UUID.randomUUID() }
           agId       <- IO { ju.UUID.randomUUID().toString }
-          _          <- repo.put(evId, streamName, agId, 1L, """{"a": 1, "b": "val"}""".asJson)
-          events     <- repo.query(streamName, agId, 1L).compile.toList
-          _          <- IO { events must have size (1) }
-          evId2      <- IO { ju.UUID.randomUUID() }
-          _          <- repo.put(evId2, streamName, agId, 2L, """{"a": 2, "b": "val"}""".asJson)
-          events2    <- repo.query(streamName, agId, 1L).compile.toList
-          _          <- IO { events2 must have size (2) }
+          payload = Map("a" -> "a", "b" -> "3").asJson
+          _       <- repo.put(evId, streamName, agId, 1L, payload)
+          events  <- repo.query(streamName, agId, 1L).compile.toList
+          _       <- IO { events must have size (1) }
+          evId2   <- IO { ju.UUID.randomUUID() }
+          _       <- repo.put(evId2, streamName, agId, 2L, payload)
+          events2 <- repo.query(streamName, agId, 1L).compile.toList
+          _       <- IO { events2 must have size (2) }
         } yield success
       }
     }
