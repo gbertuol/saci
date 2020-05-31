@@ -19,15 +19,15 @@ lazy val commonSettings = Seq(
   // Common deps
   libraryDependencies ++= Seq(
     "org.typelevel" %% "simulacrum"                  % "1.0.0" % Provided,
-    "org.typelevel" %% "cats-core"                   % "2.1.0",
-    "org.typelevel" %% "cats-effect"                 % "2.1.1",
-    "io.circe" %% "circe-core"                       % "0.12.3",
-    "io.circe" %% "circe-generic"                    % "0.12.3",
-    "io.circe" %% "circe-parser"                     % "0.12.3",
-    "co.fs2" %% "fs2-core"                           % "2.2.1",
-    "co.fs2" %% "fs2-reactive-streams"               % "2.2.1",
+    "org.typelevel" %% "cats-core"                   % "2.1.1",
+    "org.typelevel" %% "cats-effect"                 % "2.1.2",
+    "io.circe" %% "circe-core"                       % "0.13.0",
+    "io.circe" %% "circe-generic"                    % "0.13.0",
+    "io.circe" %% "circe-parser"                     % "0.13.0",
+    "co.fs2" %% "fs2-core"                           % "2.2.2",
+    "co.fs2" %% "fs2-reactive-streams"               % "2.2.2",
     "com.github.cb372" %% "cats-retry"               % "1.1.0",
-    "org.tpolecat" %% "natchez-core"                 % "0.0.11",
+    "org.tpolecat" %% "natchez-core"                 % "0.0.10",
     "com.codecommit" %% "cats-effect-testing-specs2" % "0.4.0" % Test
   )
 )
@@ -54,8 +54,8 @@ lazy val pg = project
   .settings(
     name := "saci-pg",
     libraryDependencies ++= Seq(
-      "org.tpolecat" %% "skunk-core"  % "0.0.8",
-      "org.tpolecat" %% "skunk-circe" % "0.0.8"
+      "org.tpolecat" %% "skunk-core"  % "0.0.9",
+      "org.tpolecat" %% "skunk-circe" % "0.0.9"
     )
   )
   .dependsOn(core)
