@@ -19,7 +19,7 @@
 
 package saci.es.impl
 
-import saci.data._
+import saci.es.data._
 
 trait CreateStream[F[_]] {
 

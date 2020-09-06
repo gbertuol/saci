@@ -17,13 +17,17 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package saci.data
+package saci.es.data
 
-abstract class EventStoreError(message: String, cause: Option[Throwable]) extends Exception(message, cause.orNull)
-abstract class RetriableError(message: String, cause: Option[Throwable]) extends EventStoreError(message, cause)
-abstract class NonRetriableError(message: String, cause: Option[Throwable]) extends EventStoreError(message, cause)
+import io.circe.Json
+import java.time.Instant
 
-final case class OptimisticConcurrencyCheckError(message: String) extends NonRetriableError(message, cause = None)
-final case class StreamNotFoundError(message: String) extends NonRetriableError(message, cause = None)
-final case class StreamAlreadyExistsError(message: String) extends NonRetriableError(message, cause = None)
-final case class FatalRepositoryError(message: String, cause: Throwable) extends NonRetriableError(message, cause = Some(cause))
+case class EventData(evId: Option[EventId], agType: AggregateType, agId: AggregateId, version: Version, data: Json)
+case class RecordedEvent(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json, created: Instant)
+case class WriteResult(eventId: EventId, agType: AggregateType, sqNr: SequenceNr)
+
+object show {
+  import cats.Show
+
+  implicit val showRecordedEvent: Show[RecordedEvent] = Show.fromToString
+}

@@ -24,7 +24,7 @@ import cats.effect.testing.specs2.CatsEffect
 import cats.effect.IO
 import natchez.Trace
 import scala.util.Random
-import saci.data._
+import saci.es.data._
 import io.circe.syntax._
 import java.{util => ju}
 

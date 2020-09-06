@@ -19,7 +19,7 @@
 
 package saci.es
 
-import saci.data._
+import saci.es.data._
 
 trait EventStore[F[_]] {
 

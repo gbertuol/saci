@@ -20,7 +20,7 @@
 package saci.es.impl
 
 object InMemoryRepo {
-  import saci.data._
+  import saci.es.data._
   import saci.es.Repository
   import scala.collection.mutable
   import io.circe.Json

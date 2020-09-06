@@ -19,7 +19,7 @@
 
 package saci.es
 
-import saci.data._
+import saci.es.data._
 import io.circe.Json
 
 trait Repository[F[_]] {

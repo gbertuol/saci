@@ -20,7 +20,7 @@
 package saci.pg
 
 import saci.es.Repository
-import saci.data._
+import saci.es.data._
 import cats.effect._
 import cats.implicits._
 import skunk._
@@ -44,8 +44,8 @@ object PGRepository {
         val events = for {
           session <- fs2.Stream.resource(sessionPool)
           ps      <- fs2.Stream.resource(session.prepare(selectEvents))
-          stream  <- ps.stream(agId ~ from, 10).map(ev => RecordedEvent(ev.evId, agType, agId, ev.version, ev.data, ev.timestamp.toInstant(ZoneOffset.UTC)))
-        } yield stream
+          ev      <- ps.stream(agId ~ from, 10)
+        } yield RecordedEvent(ev.evId, agType, agId, ev.version, ev.data, ev.timestamp.toInstant(ZoneOffset.UTC))
         events.adaptError {
           case ex: skunk.exception.PostgresErrorException => println(ex); FatalRepositoryError("unexpected error", ex)
         }

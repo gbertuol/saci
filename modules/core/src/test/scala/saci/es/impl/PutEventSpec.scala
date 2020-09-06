@@ -22,7 +22,7 @@ package saci.es.impl
 import org.specs2.mutable.Specification
 import cats.effect.testing.specs2.CatsEffect
 import cats.effect.IO
-import saci.data.EventData
+import saci.es.data.EventData
 import io.circe.syntax._
 import java.{util => ju}
 
