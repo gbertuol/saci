@@ -23,14 +23,21 @@ import saci.es.data._
 
 trait ListStreams[F[_]] {
   def listStreams: fs2.Stream[F, AggregateType]
+  def listEvents(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData]
 }
 
 object ListStreams {
   import saci.es.Repository
+  import cats.implicits._
 
   def apply[F[_]: Repository]: ListStreams[F] =
     new ListStreams[F] {
       override def listStreams: fs2.Stream[F, AggregateType] =
         Repository[F].listStreams
+
+      override def listEvents(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData] =
+        Repository[F]
+          .listEvents(agType, from)
+          .map(ev => EventData(ev.evId.some, ev.agType, ev.agId, ev.version, ev.data))
     }
 }

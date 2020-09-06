@@ -19,9 +19,11 @@
 
 package saci.es.impl
 
+import saci.es.data.EventId
 import org.specs2.mutable.Specification
 import cats.effect.testing.specs2.CatsEffect
 import cats.effect.IO
+import io.circe.syntax._
 
 class ListStreamsSpec extends Specification with CatsEffect {
 
@@ -49,5 +51,27 @@ class ListStreamsSpec extends Specification with CatsEffect {
         } yield success
       }
     }
+    "list events in order" in {
+      for {
+        repo <- InMemoryRepo.apply[IO]
+      } yield {
+        implicit val _repo = repo
+        val listStreams = ListStreams.apply[IO]
+        for {
+          _           <- repo.createStream("aggr-1")
+          _           <- repo.createStream("aggr-2")
+          _           <- newEvId.flatMap(evId => repo.put(evId, "aggr-1", "aggr-id-1", 1, {}.asJson))
+          _           <- newEvId.flatMap(evId => repo.put(evId, "aggr-2", "aggr-id-2", 1, {}.asJson))
+          _           <- newEvId.flatMap(evId => repo.put(evId, "aggr-1", "aggr-id-1", 2, {}.asJson))
+          _           <- newEvId.flatMap(evId => repo.put(evId, "aggr-2", "aggr-id-2", 2, {}.asJson))
+          aggr1Events <- listStreams.listEvents("aggr-1", from = Some(1)).map(ev => ev.agId -> ev.version).compile.toList
+          _           <- IO { aggr1Events === List(("aggr-id-1" -> 2)) }
+          aggr2Events <- listStreams.listEvents("aggr-2", from = Some(1)).map(ev => ev.agId -> ev.version).compile.toList
+          _           <- IO { aggr2Events === List(("aggr-id-2" -> 1), ("aggr-id-2" -> 2)) }
+        } yield success
+      }
+    }
   }
+
+  def newEvId: IO[EventId] = IO.delay(java.util.UUID.randomUUID())
 }

@@ -51,7 +51,8 @@ object EventStore {
       override def list(agType: AggregateType, agId: AggregateId): fs2.Stream[F, EventData] =
         GetAggregate.apply[F].get(agType, agId, from = 1)
 
-      override def list(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData] = ???
+      override def list(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, EventData] =
+        ListStreams.apply[F].listEvents(agType, from)
 
       override def list: fs2.Stream[F, AggregateType] =
         ListStreams.apply[F].listStreams

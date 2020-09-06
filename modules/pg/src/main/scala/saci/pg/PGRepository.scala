@@ -94,6 +94,20 @@ object PGRepository {
         }
       }
 
+      override def listEvents(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, RecordedEvent] = {
+        val events = for {
+          session <- fs2.Stream.resource(sessionPool)
+          streamId <- fs2.Stream.eval(session.prepare(selectStream).use(_.unique(agType))).adaptErr {
+            case _: skunk.exception.SkunkException => StreamNotFoundError(s"Unable to find aggregate type $agType")
+          }
+          ps <- fs2.Stream.resource(session.prepare(Statements.listEvents))
+          ev <- ps.stream(streamId ~ from.getOrElse(0L), 10)
+        } yield RecordedEvent(ev.evId, agType, ev.agId, ev.version, ev.data, ev.timestamp.toInstant(ZoneOffset.UTC))
+        events.adaptErr {
+          case ex: skunk.exception.SkunkException => FatalRepositoryError("unexpected error", ex)
+        }
+      }
+
     }
 
   }
@@ -130,6 +144,14 @@ object PGRepository {
         .query(uuid ~ int8 ~ jsonb ~ timestamp)
         .gmap[SelectedEvent]
 
+    final case class SelectedEventEx(evId: EventId, agId: AggregateId, version: Version, data: Json, timestamp: LocalDateTime)
+
+    val listEvents: Query[StreamId ~ SequenceNr, SelectedEventEx] =
+      sql"""select event_id, aggregate_id, aggregate_version, payload, created_utc from eventstore.events
+            where stream_id = ${int8} and global_position >= ${int8}
+         """
+        .query(uuid ~ varchar(128) ~ int8 ~ jsonb ~ timestamp)
+        .gmap[SelectedEventEx]
   }
 
   private def buildPool[F[_]: Concurrent: ContextShift: Trace]: SessionPool[F] =

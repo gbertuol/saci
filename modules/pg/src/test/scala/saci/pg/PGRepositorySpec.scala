@@ -71,6 +71,23 @@ class PGRepositorySpec extends Specification with CatsEffect {
         } yield success
       }
     }
+    "list all events from a stream starting from a sequence number" in {
+      PGRepository.apply[IO].use { repo =>
+        for {
+          streamName <- newStreamName
+          _          <- repo.createStream(streamName)
+          _          <- newStreamName.flatMap(stn => repo.createStream(stn))
+          evId       <- IO { ju.UUID.randomUUID() }
+          agId       <- IO { ju.UUID.randomUUID().toString }
+          payload = Map("a" -> "a", "b" -> "3").asJson
+          wr    <- repo.put(evId, streamName, agId, 1L, payload)
+          evId2 <- IO { ju.UUID.randomUUID() }
+          _     <- repo.put(evId2, streamName, agId, 2L, payload)
+          evs   <- repo.listEvents(streamName, Some(wr.sqNr)).map(ev => ev.agId -> ev.version).compile.toList
+          _     <- IO { evs === List((agId -> 1L), (agId -> 2L)) }
+        } yield success
+      }
+    }
   }
 
   private def newStreamName: IO[String] = IO {

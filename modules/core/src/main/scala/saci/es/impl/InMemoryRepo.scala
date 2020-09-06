@@ -22,6 +22,7 @@ package saci.es.impl
 object InMemoryRepo {
   import saci.es.data._
   import saci.es.Repository
+  import saci.utils._
   import scala.collection.mutable
   import io.circe.Json
   import cats.effect.Sync
@@ -29,65 +30,93 @@ object InMemoryRepo {
   import cats.implicits._
   import java.time.Instant
 
+  final case class State(
+      events: mutable.Map[AggregateType, mutable.Map[AggregateId, mutable.ArrayBuffer[Node]]] = mutable.Map(),
+      globalCounter: mutable.ArrayBuffer[(AggregateType, AggregateId, Version)] = mutable.ArrayBuffer()
+  )
+
+  final case class Node(version: Version, evId: EventId, created: Instant, data: Json)
+
   def apply[F[_]: Sync]: F[Repository[F]] = {
     for {
-      db            <- Ref[F].of(mutable.Map.empty[AggregateType, mutable.Map[AggregateId, mutable.Buffer[Node]]])
-      globalCounter <- Ref[F].of(0L)
+      state <- Ref[F].of(State())
     } yield new Repository[F] {
       override def query(agType: AggregateType, agId: AggregateId, from: Version): fs2.Stream[F, RecordedEvent] = {
         for {
-          _db <- fs2.Stream.eval(db.get)
-          _ <- if (_db.contains(agType)) fs2.Stream(_db(agType))
-          else fs2.Stream.raiseError[F](StreamNotFoundError(s"unable to find stream type $agType"))
-          stream = _db(agType)
+          _db    <- fs2.Stream.eval(state.get)
+          stream <- fs2.Stream.fromEither[F](_db.events.get(agType).toRight(StreamNotFoundError(s"unable to find stream type $agType")))
           aggregate = stream.getOrElse(agId, mutable.Buffer.empty[Node])
-          data = aggregate.dropWhile(_.version < from).map(d => RecordedEvent(d.evId, agType, agId, d.version, d.data, d.created))
-          events <- fs2.Stream.fromIterator(data.iterator)
-        } yield events
+          node <- fs2.Stream.fromIterator(aggregate.iterator).dropWhile(_.version < from)
+        } yield RecordedEvent(node.evId, agType, agId, node.version, node.data, node.created)
       }
 
       override def put(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json): F[WriteResult] = {
         for {
-          _db       <- db.get
           timestamp <- Sync[F].delay(Instant.now)
-          _ <- Sync[F].catchNonFatal {
-            val stream = if (_db.contains(agType)) _db(agType) else throw StreamNotFoundError(s"unable to find stream type $agType")
-            val aggregate = stream.getOrElseUpdate(agId, mutable.Buffer.empty[Node])
-            if (aggregate.isEmpty) {
-              if (version != 1) {
-                throw OptimisticConcurrencyCheckError(s"empty stream of $agId requires first version to be 1, got $version instead")
+          result <- state.modifyOr { _state =>
+            for {
+              stream <- _state.events.get(agType).toRight(StreamNotFoundError(s"unable to find stream type $agType"))
+              aggregate = stream.getOrElseUpdate(agId, mutable.ArrayBuffer.empty[Node])
+              gc <- {
+                if (aggregate.isEmpty) {
+                  if (version != 1) {
+                    Left(OptimisticConcurrencyCheckError(s"empty stream of $agId requires first version to be 1, got $version instead"))
+                  } else {
+                    aggregate.addOne(Node(version, evId, timestamp, data))
+                    _state.globalCounter.addOne((agType, agId, version))
+                    Right(_state.globalCounter.size)
+                  }
+                } else {
+                  val lastNode = aggregate.last
+                  if (lastNode.version != (version - 1)) {
+                    Left(OptimisticConcurrencyCheckError(s"outdated version $version of $agId current is ${lastNode.version}"))
+                  }
+                  aggregate.addOne(Node(version, evId, timestamp, data))
+                  _state.globalCounter.addOne((agType, agId, version))
+                  Right(_state.globalCounter.size)
+                }
               }
-              aggregate.addOne(Node(version, evId, timestamp, data))
-            } else {
-              val lastNode = aggregate.last
-              if (lastNode.version != (version - 1)) {
-                throw OptimisticConcurrencyCheckError(s"outdated version $version of $agId current is ${lastNode.version}")
-              }
-              aggregate.addOne(Node(version, evId, timestamp, data))
-            }
+            } yield _state -> WriteResult(evId, agType, gc.toLong)
           }
-          sqNr <- globalCounter.modify(x => (x + 1, x))
-        } yield WriteResult(evId, agType, sqNr)
+          writeResult <- result.liftTo[F]
+        } yield writeResult
       }
 
-      override def listStreams: fs2.Stream[F, AggregateType] = {
+      override def listEvents(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, RecordedEvent] =
         for {
-          _db     <- fs2.Stream.eval(db.get)
-          streams <- fs2.Stream.fromIterator(_db.keys.iterator)
+          _state <- fs2.Stream.eval(state.get)
+          _from = from.getOrElse(0L)
+          _until = _state.globalCounter.size
+          data = _state.globalCounter.slice(_from.toInt, _until).collect {
+            case (`agType`, agId, version) =>
+              val node = _state.events(agType)(agId)(version.toInt - 1)
+              RecordedEvent(node.evId, agType, agId, version, node.data, node.created)
+          }
+          stream <- fs2.Stream.fromIterator(data.iterator)
+        } yield stream
+
+      override def listStreams: fs2.Stream[F, AggregateType] =
+        for {
+          _state  <- fs2.Stream.eval(state.get)
+          streams <- fs2.Stream.fromIterator(_state.events.keys.iterator)
         } yield streams
-      }
 
       override def createStream(agType: AggregateType): F[Unit] = {
-        for {
-          _db <- db.get
-          _ <- Sync[F].catchNonFatal {
-            if (_db.contains(agType)) throw StreamAlreadyExistsError(s"unable to re-create existing stream $agType")
-            _db.addOne(agType -> mutable.Map.empty)
+        state
+          .updateOr {
+            case _state =>
+              if (_state.events.contains(agType)) {
+                Left(StreamAlreadyExistsError(s"unable to re-create existing stream $agType"))
+              } else {
+                _state.events.addOne(agType -> mutable.Map.empty)
+                Right(_state)
+              }
           }
-        } yield ()
+          .flatMap {
+            case Some(error) => Sync[F].raiseError(error)
+            case _ => Sync[F].pure(())
+          }
       }
     }
   }
-
-  final case class Node(version: Version, evId: EventId, created: Instant, data: Json)
 }

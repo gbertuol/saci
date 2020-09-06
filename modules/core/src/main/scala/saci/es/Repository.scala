@@ -28,6 +28,7 @@ trait Repository[F[_]] {
   def put(evId: EventId, agType: AggregateType, agId: AggregateId, version: Version, data: Json): F[WriteResult]
   def createStream(agType: AggregateType): F[Unit]
   def listStreams: fs2.Stream[F, AggregateType]
+  def listEvents(agType: AggregateType, from: Option[SequenceNr]): fs2.Stream[F, RecordedEvent]
 
 }
 
